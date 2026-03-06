@@ -1,0 +1,17 @@
+﻿{
+    "configurations": [
+        {
+            "name": "x64-Release",
+            "generator": "Ninja",
+            "configurationType": "RelWithDebInfo",
+            "enableMicrosoftCodeAnalysis": false,
+            "enableClangTidyCodeAnalysis": true,
+            "buildRoot": "${projectDir}\\build\\${name}",
+            "installRoot": "${projectDir}\\out\\install\\${name}",
+            "cmakeCommandArgs": "",
+            "buildCommandArgs": "-v",
+            "ctestCommandArgs": "",
+            "inheritEnvironments": [ "msvc_x64" ]
+        }
+    ]
+}
