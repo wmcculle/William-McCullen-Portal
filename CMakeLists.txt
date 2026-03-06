@@ -1,69 +1,64 @@
-# Require CMAKE 3.12 or higher
-cmake_minimum_required(VERSION 3.12)
+set(GAMENAME Lab12)
+# This grabs all files in this directory that end with .cpp, .h, and .hpp
+file(GLOB source_files CONFIGURE_DEPENDS "*.cpp" "*.h" "*.hpp")
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${source_files})
 
-# Project name
-project(itp380labs)
+# Don't change this
+add_executable(${GAMENAME} ${source_files} "Block.h" "Block.cpp" "CameraComponent.h" "CameraComponent.cpp" "Door.h" "Door.cpp" "EnergyCatcher.h" "EnergyCatcher.cpp" "EnergyCube.h" "EnergyCube.cpp" "EnergyGlass.h" "EnergyGlass.cpp" "EnergyLauncher.h" "EnergyLauncher.cpp" "HealthComponent.h" "HealthComponent.cpp" "LaserComponent.h" "LaserComponent.cpp" "Pellet.cpp" "Pellet.h" "Player.h" "Player.cpp" "PlayerMesh.h" "PlayerMesh.cpp" "PlayerMove.h" "PlayerMove.cpp" "Portal.h" "Portal.cpp" "PortalGun.h" "PortalGun.cpp" "Prop.h" "Prop.cpp" "TurretBase.cpp" "TurretBase.h" "TurretHead.h" "TurretHead.cpp" "VOTrigger.cpp" "VOTrigger.h" "HUD.h" "HUD.cpp")
 
-# Build for C++17
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Where any include files are
-# Every target needs stb/rapidjson includes
-include_directories(Libraries/stb/include)
-include_directories(Libraries/rapidjson/include)
-# For emscripten, we don't include GLEW/SDL because they're provided by emsdk
-if (NOT EMSCRIPTEN)
-	include_directories(Libraries/GLEW/include)
-	include_directories(Libraries/SDL/include)
-endif()
-
-# Where any libraries are
+# Link libraries and copy DLL files
 if (WIN32)
-	link_directories(Libraries/GLEW/lib/win/x64)
-	link_directories(Libraries/SDL/lib/win/x64)
-elseif(APPLE)
-	link_directories(Libraries/GLEW/lib/mac)
-	link_directories(Libraries/SDL/lib/mac)
-endif()
+	target_link_libraries(${GAMENAME} SDL2 SDL2main SDL2_image SDL2_mixer SDL2_ttf glew32 opengl32)
+	
+	file(GLOB_RECURSE MYDLLS "${PROJECT_SOURCE_DIR}/Libraries/*.dll")
+	foreach(CurrentDllFile IN LISTS MYDLLS)
+		add_custom_command(TARGET ${GAMENAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy "${CurrentDllFile}" "${CMAKE_CURRENT_BINARY_DIR}"
+			COMMENT "Copy dll file to ${CMAKE_CURRENT_BINARY_DIR} directory" VERBATIM
+		)
+	endforeach()
+elseif (APPLE)
+	target_link_libraries(${GAMENAME} SDL2 SDL2_image SDL2_mixer SDL2_ttf ogg vorbis vorbisfile GLEW ${COREFOUNDATION_LIBRARY} ${OPENGL_LIBRARY} ${COREGRAPHICS_LIBRARY} ${COREAUDIO_LIBRARY} ${AUDIOTOOLBOX_LIBRARY} ${COREVIDEO_LIBRARY} ${FORCEFEEDBACK_LIBRARY} ${IOKIT_LIBRARY} ${APPKIT_LIBRARY} ${METAL_LIBRARY} ${CARBON_LIBRARY})
+	set_target_properties(
+		${GAMENAME}
+		PROPERTIES
+		XCODE_ATTRIBUTE_CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION YES
+		XCODE_ATTRIBUTE_GCC_WARN_SHADOW YES
+		XCODE_ATTRIBUTE_GCC_WARN_ABOUT_RETURN_TYPE YES
+		XCODE_ATTRIBUTE_GCC_WARN_SIGN_COMPARE YES
+		XCODE_ATTRIBUTE_GCC_WARN_UNINITIALIZED_AUTOS YES
+		XCODE_ATTRIBUTE_GCC_WARN_UNUSED_FUNCTION NO
+	)
+	
+	# Use this to figure out Xcode or not
+	get_cmake_property(is_multi GENERATOR_IS_MULTI_CONFIG)
+	if (is_multi)
+		set(COPY_DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/Debug")
+	else()
+		set(COPY_DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+	endif()
 
-# Set any compiler-specific settings
-if (WIN32)
-	set(CMAKE_CXX_FLAGS "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /wd26812 /w34456 /w34457 /w34458 /w34459 /w35038 /we4715 /we4834")
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ignore:4099 /ignore:4075")
-elseif(APPLE)
-	set(CMAKE_CXX_FLAGS "-Wall -Werror=return-type -Werror=unused-result -ftrivial-auto-var-init=pattern")
-	find_library(COREFOUNDATION_LIBRARY CoreFoundation)
-	find_library(COREGRAPHICS_LIBRARY CoreGraphics)
-	find_library(COREAUDIO_LIBRARY CoreAudio)
-	find_library(COREVIDEO_LIBRARY CoreVideo)
-	find_library(AUDIOTOOLBOX_LIBRARY AudioToolbox)
-	find_library(FORCEFEEDBACK_LIBRARY ForceFeedback)
-	find_library(IOKIT_LIBRARY IOKit)
-	find_library(APPKIT_LIBRARY AppKit)
-	find_library(METAL_LIBRARY Metal)
-	find_library(CARBON_LIBRARY Carbon)
-	find_library(OPENGL_LIBRARY OpenGL)
-	set(CMAKE_XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS[variant=Debug] "YES")
-	set(CMAKE_XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS[variant=MinSizeRel] "NO")
-	set(CMAKE_XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS[variant=RelWithDebInfo] "YES")
-	set(CMAKE_XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS[variant=Release] "NO")
+	file(GLOB_RECURSE MYDLLS "${PROJECT_SOURCE_DIR}/Libraries/*.dylib")
+	foreach(CurrentDllFile IN LISTS MYDLLS)
+		add_custom_command(TARGET ${GAMENAME}
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy "${CurrentDllFile}" "${COPY_DESTINATION}"
+			COMMENT "Copy dylib file to ${COPY_DESTINATION} directory" VERBATIM
+		)
+	endforeach()
+
+	add_custom_command(TARGET ${GAMENAME}
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/${GAMENAME}/Assets" "${COPY_DESTINATION}/Assets"
+		COMMENT "Copy Assets directory" VERBATIM
+	)
+
+	add_custom_command(TARGET ${GAMENAME}
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/${GAMENAME}/Shaders" "${COPY_DESTINATION}/Shaders"
+		COMMENT "Copy Shaders directory" VERBATIM
+	)
 elseif (EMSCRIPTEN)
-	set(CMAKE_CXX_FLAGS "-sUSE_SDL=2 -sUSE_SDL_IMAGE=2 -sSDL2_IMAGE_FORMATS=\"[\"png\"]\" -sUSE_SDL_MIXER=2 -sUSE_SDL_TTF=2")
-	set(CMAKE_EXECUTABLE_SUFFIX ".html")
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sMIN_WEBGL_VERSION=2 -sTOTAL_MEMORY=1024MB --shell-file \"${PROJECT_SOURCE_DIR}/Libraries/Emscripten/shell_minimal.html\"")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --preload-file \"${PROJECT_SOURCE_DIR}/${GAMENAME}/Assets@/Assets\" --preload-file \"${PROJECT_SOURCE_DIR}/${GAMENAME}/ShadersES@/Shaders\"")
 endif()
-
-# Subdirectories to build
-add_subdirectory(Lab01)
-add_subdirectory(Lab02)
-add_subdirectory(Lab03)
-add_subdirectory(Lab04)
-add_subdirectory(Lab05)
-add_subdirectory(Lab06)
-add_subdirectory(Lab07)
-add_subdirectory(Lab08)
-add_subdirectory(Lab09)
-add_subdirectory(Lab10)
-add_subdirectory(Lab11)
-add_subdirectory(Lab12)
